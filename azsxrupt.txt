@@ -34,3 +34,41 @@ class Program
         Console.WriteLine("All associated backup disks have been deleted.");
     }
 }
+
+
+using System;
+using System.Threading.Tasks;
+using Azure.Identity;
+using Azure.ResourceManager;
+using Azure.ResourceManager.Resources;
+using Azure.ResourceManager.Resources.Models;
+
+class Program
+{
+    static async Task Main(string[] args)
+    {
+        string subscriptionId = "YourSubscriptionId";
+        string diskAccessId = "/subscriptions/YourSubscriptionId/resourceGroups/YourResourceGroupName/providers/Microsoft.Compute/diskAccesses/YourDiskAccessName";
+
+        var credential = new DefaultAzureCredential();
+        var armClient = new ArmClient(credential, subscriptionId);
+
+        var resourceGraphClient = armClient.GetResourceGraphClient();
+
+        string query = $@"
+            resources
+            | where type == 'microsoft.compute/disks'
+            | where properties.diskAccessId == '{diskAccessId}'
+            | project id, name, type, location
+        ";
+
+        var queryRequest = new ResourceQueryContent(query);
+        var queryResponse = await resourceGraphClient.ResourcesAsync(queryRequest);
+
+        Console.WriteLine("Resources associated with Disk Access:");
+        foreach (var resource in queryResponse.Data)
+        {
+            Console.WriteLine($"- {resource["name"]} ({resource["type"]}) in {resource["location"]}");
+        }
+    }
+}
