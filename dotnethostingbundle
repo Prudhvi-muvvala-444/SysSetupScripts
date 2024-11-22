@@ -1,0 +1,30 @@
+# Define the URL for the .NET Hosting Bundle installer
+$hostingBundleUrl = "https://dotnet.microsoft.com/download/dotnet/thank-you/runtime-aspnetcore-7.0.14-windows-hosting-bundle-installer"
+
+# Define a temporary path for downloading the installer
+$tempInstallerPath = "$env:TEMP\dotnethostingbundle.exe"
+
+# Function to check if .NET Hosting Bundle is installed
+Function Is-HostingBundleInstalled {
+    $installedBundles = Get-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*" `
+        | Where-Object { $_.DisplayName -like "*Hosting Bundle*" }
+    return $installedBundles -ne $null
+}
+
+# Install the .NET Hosting Bundle if not installed
+if (-not (Is-HostingBundleInstalled)) {
+    Write-Host "The .NET Hosting Bundle is not installed. Downloading and installing..."
+
+    # Download the installer
+    Invoke-WebRequest -Uri $hostingBundleUrl -OutFile $tempInstallerPath -UseBasicParsing
+
+    # Install the .NET Hosting Bundle silently
+    Start-Process -FilePath $tempInstallerPath -ArgumentList "/quiet" -Wait
+
+    # Cleanup the installer
+    Remove-Item $tempInstallerPath -Force
+
+    Write-Host "Installation complete."
+} else {
+    Write-Host "The .NET Hosting Bundle is already installed."
+}
