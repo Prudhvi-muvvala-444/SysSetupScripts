@@ -545,3 +545,76 @@ public async Task IsIdeaStatusInprogress_InProcess_ReturnsTrue()
     var mockRepo = new Mock<IRepository>();
     var mockService = new Mock<YourServiceClass>(mockRepo.Object);
     mockService.Setup(s => s.
+
+
+
+
+
+using Xunit;
+using Moq;
+using Microsoft.Extensions.Logging;
+using AutoMapper;
+using Microsoft.AspNetCore.Hosting;
+using System.Threading.Tasks;
+
+// Assuming these are in your project
+// using YourProjectNamespace; // Replace with your actual namespace
+// using YourProjectNamespace.Enums; // Replace with your actual enum namespace
+// using YourProjectNamespace.Models; // Replace with your actual model namespace
+
+public class ServiceBaseTests
+{
+    [Fact]
+    public async Task IsSubmittedIdea_IdeaInProcess_ReturnsFalse()
+    {
+        // Arrange
+        var mockRepo = new Mock<IRepository>();
+        var mockLogger = new Mock<ILogger>();
+        var mockMapper = new Mock<IMapper>();
+        var mockEnv = new Mock<IHostingEnvironment>();
+        var mockService = new Mock<ServiceBase>(mockRepo.Object, mockLogger.Object, mockMapper.Object, mockEnv.Object);
+
+        // Mock GetIdea method
+        mockService.Setup(s => s.GetIdea(1, true)).ReturnsAsync(new Idea { Id = 1, IdeaStatusId = 1 });
+
+        // Mock Repository.GetByIdAsync for IdeaStatus
+        mockRepo.Setup(r => r.GetByIdAsync<IdeaStatus, int>(It.IsAny<System.Linq.Expressions.Expression<Func<IdeaStatus, bool>>>()))
+            .ReturnsAsync(new IdeaStatus { Id = 1, GroupId = (int)IdeaStatusGroupEnum.InProcess });
+
+        mockService.CallBase = true; // Allow calling the base implementation of IsSubmittedIdea
+
+        // Act
+        var result = await mockService.Object.IsSubmittedIdea(1);
+
+        // Assert
+        Assert.False(result);
+    }
+
+    [Fact]
+    public async Task IsSubmittedIdea_IdeaSubmitted_ReturnsTrue()
+    {
+        // Arrange
+        var mockRepo = new Mock<IRepository>();
+        var mockLogger = new Mock<ILogger>();
+        var mockMapper = new Mock<IMapper>();
+        var mockEnv = new Mock<IHostingEnvironment>();
+        var mockService = new Mock<ServiceBase>(mockRepo.Object, mockLogger.Object, mockMapper.Object, mockEnv.Object);
+
+        // Mock GetIdea method
+        mockService.Setup(s => s.GetIdea(1, true)).ReturnsAsync(new Idea { Id = 1, IdeaStatusId = 2 });
+
+        // Mock Repository.GetByIdAsync for IdeaStatus
+        mockRepo.Setup(r => r.GetByIdAsync<IdeaStatus, int>(It.IsAny<System.Linq.Expressions.Expression<Func<IdeaStatus, bool>>>()))
+            .ReturnsAsync(new IdeaStatus { Id = 2, GroupId = (int)IdeaStatusGroupEnum.Submitted }); // Assuming "Submitted" is another enum value
+
+        mockService.CallBase = true; // Allow calling the base implementation of IsSubmittedIdea
+
+        // Act
+        var result = await mockService.Object.IsSubmittedIdea(1);
+
+        // Assert
+        Assert.True(result);
+    }
+
+    // Add more test cases for other scenarios (e.g., IdeaStatus not found, GetIdea returns null, etc.)
+}
