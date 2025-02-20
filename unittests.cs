@@ -572,16 +572,17 @@ public class ServiceBaseTests
         var mockLogger = new Mock<ILogger>();
         var mockMapper = new Mock<IMapper>();
         var mockEnv = new Mock<IHostingEnvironment>();
-        var mockService = new Mock<ServiceBase>(mockRepo.Object, mockLogger.Object, mockMapper.Object, mockEnv.Object);
 
-        // Mock GetIdea method
-        mockService.Setup(s => s.GetIdea(1, true)).ReturnsAsync(new Idea { Id = 1, IdeaStatusId = 1 });
+        // Create a partial mock of ServiceBase
+        var mockService = new Mock<ServiceBase>(mockRepo.Object, mockLogger.Object, mockMapper.Object, mockEnv.Object) { CallBase = true };
+
+        // Mock GetIdea method (now accessible through partial mocking)
+        mockService.Protected().Setup<Task<Idea>>("GetIdea", ItExpr.IsAny<int>(), ItExpr.IsAny<bool>())
+            .ReturnsAsync(new Idea { Id = 1, IdeaStatusId = 1 });
 
         // Mock Repository.GetByIdAsync for IdeaStatus
         mockRepo.Setup(r => r.GetByIdAsync<IdeaStatus, int>(It.IsAny<System.Linq.Expressions.Expression<Func<IdeaStatus, bool>>>()))
             .ReturnsAsync(new IdeaStatus { Id = 1, GroupId = (int)IdeaStatusGroupEnum.InProcess });
-
-        mockService.CallBase = true; // Allow calling the base implementation of IsSubmittedIdea
 
         // Act
         var result = await mockService.Object.IsSubmittedIdea(1);
@@ -598,16 +599,17 @@ public class ServiceBaseTests
         var mockLogger = new Mock<ILogger>();
         var mockMapper = new Mock<IMapper>();
         var mockEnv = new Mock<IHostingEnvironment>();
-        var mockService = new Mock<ServiceBase>(mockRepo.Object, mockLogger.Object, mockMapper.Object, mockEnv.Object);
 
-        // Mock GetIdea method
-        mockService.Setup(s => s.GetIdea(1, true)).ReturnsAsync(new Idea { Id = 1, IdeaStatusId = 2 });
+        // Create a partial mock of ServiceBase
+        var mockService = new Mock<ServiceBase>(mockRepo.Object, mockLogger.Object, mockMapper.Object, mockEnv.Object) { CallBase = true };
+
+        // Mock GetIdea method (now accessible through partial mocking)
+        mockService.Protected().Setup<Task<Idea>>("GetIdea", ItExpr.IsAny<int>(), ItExpr.IsAny<bool>())
+            .ReturnsAsync(new Idea { Id = 1, IdeaStatusId = 2 });
 
         // Mock Repository.GetByIdAsync for IdeaStatus
         mockRepo.Setup(r => r.GetByIdAsync<IdeaStatus, int>(It.IsAny<System.Linq.Expressions.Expression<Func<IdeaStatus, bool>>>()))
             .ReturnsAsync(new IdeaStatus { Id = 2, GroupId = (int)IdeaStatusGroupEnum.Submitted }); // Assuming "Submitted" is another enum value
-
-        mockService.CallBase = true; // Allow calling the base implementation of IsSubmittedIdea
 
         // Act
         var result = await mockService.Object.IsSubmittedIdea(1);
