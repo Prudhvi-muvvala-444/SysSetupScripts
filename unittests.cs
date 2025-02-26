@@ -169,3 +169,81 @@ public class BlobContainerServiceTests
             Times.Once);
     }
 }
+
+
+using Azure;
+using Azure.Storage.Blobs.Models;
+using System.IO;
+using System.Text;
+
+public static class MockBlobDownloadResponse
+{
+    public static Response<BlobDownloadResult> Create(string content)
+    {
+        var stream = new MemoryStream(Encoding.UTF8.GetBytes(content));
+        var blobDownloadResult = BlobsModelFactory.BlobDownloadResult(content: stream);
+
+        return Response.FromValue(blobDownloadResult, new MockResponseHeaders());
+    }
+
+    private class MockResponseHeaders : ResponseHeaders
+    {
+        public override string? CacheControl => null;
+        public override string? ContentDisposition => null;
+        public override string? ContentEncoding => null;
+        public override string? ContentLanguage => null;
+        public override long? ContentLength => null;
+        public override string? ContentRange => null;
+        public override string? ContentType => "application/octet-stream";
+        public override DateTimeOffset? Date => DateTimeOffset.UtcNow;
+        public override string? ETag => null;
+        public override DateTimeOffset? Expires => null;
+        public override DateTimeOffset? LastModified => DateTimeOffset.UtcNow;
+        public override string? Location => null;
+        public override long? StatusCode => 200;
+        public override string? TransferEncoding => null;
+        public override string? Vary => null;
+        public override string? WwwAuthenticate => null;
+    }
+}
+
+
+using Xunit;
+using Moq;
+using Azure.Storage.Blobs;
+using Microsoft.Extensions.Logging;
+using System.Threading.Tasks;
+
+public class BlobContainerServiceTests
+{
+    [Fact]
+    public async Task DownloadFileAsync_SuccessfulDownload_ReturnsStream()
+    {
+        // Arrange
+        var mockBlobContainerClient = new Mock<BlobContainerClient>();
+        var mockBlobClient = new Mock<BlobClient>();
+        var mockLogger = new Mock<ILogger<BlobContainerService>>();
+
+        // Use the mock response
+        var mockResponse = MockBlobDownloadResponse.Create("test content");
+
+        mockBlobContainerClient.Setup(c => c.GetBlobClient(It.IsAny<string>())).Returns(mockBlobClient.Object);
+        mockBlobClient.Setup(c => c.DownloadStreamingAsync(default, default, default)).ReturnsAsync(mockResponse);
+
+        var service = new BlobContainerService(mockBlobContainerClient.Object, mockLogger.Object);
+
+        // Act
+        var result = await service.DownloadFileAsync("testfile.txt");
+
+        // Assert
+        Assert.NotNull(result);
+        using (var reader = new StreamReader(result))
+        {
+            Assert.Equal("test content", reader.ReadToEnd());
+        }
+        mockBlobClient.Verify(c => c.DownloadStreamingAsync(default, default, default), Times.Once);
+    }
+
+    // ... other tests ...
+}
+
