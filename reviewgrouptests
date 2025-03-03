@@ -1,0 +1,307 @@
+using Xunit;
+using Moq;
+using System.Threading.Tasks;
+using SSC.GMS.Catalyst.Application.Services.Definitions.SailPoint;
+using SSC.GMS.Catalyst.Domain.DbModels;
+using Microsoft.Extensions.Logging;
+using AutoMapper;
+using System.Text.RegularExpressions;
+
+namespace SSC.GMS.Catalyst.Application.Services.Definitions.SailPoint.Tests
+{
+    public class IdeaReviewGroupReviewerEntitlementServiceTests
+    {
+        private readonly Mock<IRepository> _mockRepo;
+        private readonly Mock<ILogger<IdeaReviewGroupReviewerEntitlementService>> _mockLogger;
+        private readonly Mock<IMapper> _mockMapper;
+        private readonly IdeaReviewGroupReviewerEntitlementService _service;
+
+        public IdeaReviewGroupReviewerEntitlementServiceTests()
+        {
+            _mockRepo = new Mock<IRepository>();
+            _mockLogger = new Mock<ILogger<IdeaReviewGroupReviewerEntitlementService>>();
+            _mockMapper = new Mock<IMapper>();
+            _service = new IdeaReviewGroupReviewerEntitlementService(_mockRepo.Object, _mockLogger.Object, _mockMapper.Object);
+        }
+
+        [Fact]
+        public async Task RemoveAsync_MembershipNotFound_ReturnsErrorMessage()
+        {
+            // Arrange
+            var userInfo = new UserInfo { Id = "user1" };
+            var entitlement = "IPO_EntitlementCode_123";
+            _mockRepo.Setup(repo => repo.GetByIdAsync<ReviewGroupReviewer, int>(It.IsAny<System.Linq.Expressions.Expression<Func<ReviewGroupReviewer, bool>>>()))
+                .ReturnsAsync((ReviewGroupReviewer)null);
+
+            // Act
+            var result = await _service.RemoveAsync(userInfo, entitlement, "loginUser");
+
+            // Assert
+            Assert.StartsWith("User does not have entitlement", result);
+        }
+
+        [Fact]
+        public async Task RemoveAsync_MembershipInactive_ReturnsErrorMessage()
+        {
+            // Arrange
+            var userInfo = new UserInfo { Id = "user1" };
+            var entitlement = "IPO_EntitlementCode_123";
+            var membership = new ReviewGroupReviewer { UserId = "user1", GroupId = 123, IsActive = false };
+            _mockRepo.Setup(repo => repo.GetByIdAsync<ReviewGroupReviewer, int>(It.IsAny<System.Linq.Expressions.Expression<Func<ReviewGroupReviewer, bool>>>()))
+                .ReturnsAsync(membership);
+
+            // Act
+            var result = await _service.RemoveAsync(userInfo, entitlement, "loginUser");
+
+            // Assert
+            Assert.StartsWith("User does not have entitlement", result);
+        }
+
+        [Fact]
+        public async Task RemoveAsync_MembershipActive_UpdatesAndReturnsEmptyString()
+        {
+            // Arrange
+            var userInfo = new UserInfo { Id = "user1" };
+            var entitlement = "IPO_EntitlementCode_123";
+            var membership = new ReviewGroupReviewer { UserId = "user1", GroupId = 123, IsActive = true };
+            _mockRepo.Setup(repo => repo.GetByIdAsync<ReviewGroupReviewer, int>(It.IsAny<System.Linq.Expressions.Expression<Func<ReviewGroupReviewer, bool>>>()))
+                .ReturnsAsync(membership);
+
+            // Act
+            var result = await _service.RemoveAsync(userInfo, entitlement, "loginUser");
+
+            // Assert
+            Assert.Equal(string.Empty, result);
+            Assert.False(membership.IsActive);
+            _mockRepo.Verify(repo => repo.UpdateAsync(membership, "user1"), Times.Once);
+        }
+
+        [Fact]
+        public void ParseEntitlementName_ValidEntitlement_ReturnsGroupId()
+        {
+            // Arrange
+            var entitlement = "IPO_EntitlementCode_123";
+
+            // Act
+            var result = _service.ParseEntitlementName(entitlement);
+
+            // Assert
+            Assert.Equal(123, result);
+        }
+
+        [Fact]
+        public void ParseEntitlementName_InvalidEntitlementFormat_ReturnsZero()
+        {
+            // Arrange
+            var entitlement = "Invalid_Entitlement";
+
+            // Act
+            var result = _service.ParseEntitlementName(entitlement);
+
+            // Assert
+            Assert.Equal(0, result);
+        }
+
+        [Fact]
+        public void ParseEntitlementName_InvalidEntitlementCode_ReturnsZero()
+        {
+            // Arrange
+            var entitlement = "IPO_WrongCode_123";
+
+            // Act
+            var result = _service.ParseEntitlementName(entitlement);
+
+            // Assert
+            Assert.Equal(0, result);
+        }
+
+        [Fact]
+        public void ParseEntitlementName_InvalidGroupId_ReturnsZero()
+        {
+            // Arrange
+            var entitlement = "IPO_EntitlementCode_abc";
+
+            // Act
+            var result = _service.ParseEntitlementName(entitlement);
+
+            // Assert
+            Assert.Equal(0, result);
+        }
+
+        [Fact]
+        public void GetEntitlementName_ReturnsCorrectName()
+        {
+            // Arrange
+            int groupId = 456;
+
+            // Act
+            var result = _service.GetEntitlementName(groupId);
+
+            // Assert
+            Assert.Equal("IPO_EntitlementCode_456", result);
+        }
+
+        [Fact]
+        public void GetEntitlementDescription_ReturnsCorrectDescription()
+        {
+            // Arrange
+            int groupId = 789;
+
+            // Act
+            var result = _service.GetEntitlementDescription(groupId);
+
+            // Assert
+            Assert.Equal("Catalyst Idea Group Reviewer (789)", result);
+        }
+    }
+}
+using Xunit;
+using Moq;
+using System.Threading.Tasks;
+using SSC.GMS.Catalyst.Application.Services.Definitions.SailPoint;
+using SSC.GMS.Catalyst.Domain.DbModels;
+using Microsoft.Extensions.Logging;
+using AutoMapper;
+using System.Collections.Generic;
+using System.Linq;
+
+namespace SSC.GMS.Catalyst.Application.Services.Definitions.SailPoint.Tests
+{
+    public class IdeaReviewGroupReviewerEntitlementServiceTests
+    {
+        private readonly Mock<IRepository> _mockRepo;
+        private readonly Mock<ILogger<IdeaReviewGroupReviewerEntitlementService>> _mockLogger;
+        private readonly Mock<IMapper> _mockMapper;
+        private readonly IdeaReviewGroupReviewerEntitlementService _service;
+
+        public IdeaReviewGroupReviewerEntitlementServiceTests()
+        {
+            _mockRepo = new Mock<IRepository>();
+            _mockLogger = new Mock<ILogger<IdeaReviewGroupReviewerEntitlementService>>();
+            _mockMapper = new Mock<IMapper>();
+            _service = new IdeaReviewGroupReviewerEntitlementService(_mockRepo.Object, _mockLogger.Object, _mockMapper.Object);
+        }
+
+        // ... (Previous tests for RemoveAsync, ParseEntitlementName, GetEntitlementName, GetEntitlementDescription) ...
+
+        [Fact]
+        public async Task AddAsync_UserAlreadyHasEntitlement_ReturnsErrorMessage()
+        {
+            // Arrange
+            var userInfo = new UserInfo { Id = "user1" };
+            var entitlement = "IPO_EntitlementCode_123";
+            var membership = new ReviewGroupReviewer { UserId = "user1", GroupId = 123, IsActive = true };
+            _mockRepo.Setup(repo => repo.GetByIdAsync<ReviewGroupReviewer, int>(It.IsAny<System.Linq.Expressions.Expression<Func<ReviewGroupReviewer, bool>>>()))
+                .ReturnsAsync(membership);
+
+            // Act
+            var result = await _service.AddAsync(userInfo, entitlement, "loginUser");
+
+            // Assert
+            Assert.StartsWith("User already has entitlement", result);
+        }
+
+        [Fact]
+        public async Task AddAsync_NewMembership_InsertsAndReturnsEmptyString()
+        {
+            // Arrange
+            var userInfo = new UserInfo { Id = "user1" };
+            var entitlement = "IPO_EntitlementCode_123";
+            _mockRepo.Setup(repo => repo.GetByIdAsync<ReviewGroupReviewer, int>(It.IsAny<System.Linq.Expressions.Expression<Func<ReviewGroupReviewer, bool>>>()))
+                .ReturnsAsync((ReviewGroupReviewer)null);
+
+            // Act
+            var result = await _service.AddAsync(userInfo, entitlement, "loginUser");
+
+            // Assert
+            Assert.Equal(string.Empty, result);
+            _mockRepo.Verify(repo => repo.InsertAsync(userInfo.Id, It.IsAny<ReviewGroupReviewer>()), Times.Once);
+        }
+
+        [Fact]
+        public async Task AddAsync_ExistingInactiveMembership_UpdatesAndReturnsEmptyString()
+        {
+            // Arrange
+            var userInfo = new UserInfo { Id = "user1" };
+            var entitlement = "IPO_EntitlementCode_123";
+            var membership = new ReviewGroupReviewer { UserId = "user1", GroupId = 123, IsActive = false };
+            _mockRepo.Setup(repo => repo.GetByIdAsync<ReviewGroupReviewer, int>(It.IsAny<System.Linq.Expressions.Expression<Func<ReviewGroupReviewer, bool>>>()))
+                .ReturnsAsync(membership);
+
+            // Act
+            var result = await _service.AddAsync(userInfo, entitlement, "loginUser");
+
+            // Assert
+            Assert.Equal(string.Empty, result);
+            Assert.True(membership.IsActive);
+            _mockRepo.Verify(repo => repo.UpdateAsync(membership, "loginUser"), Times.Once);
+        }
+
+        [Fact]
+        public async Task GetListAsync_ReturnsListOfEntitlementDtos()
+        {
+            // Arrange
+            var reviewGroups = new List<ReviewGroup>
+            {
+                new ReviewGroup { Id = 123, IsActive = true },
+                new ReviewGroup { Id = 456, IsActive = true }
+            };
+            _mockRepo.Setup(repo => repo.GetAllAsync<ReviewGroup, int>(It.IsAny<System.Linq.Expressions.Expression<Func<ReviewGroup, bool>>>()))
+                .ReturnsAsync(reviewGroups);
+
+            // Act
+            var result = await _service.GetListAsync();
+
+            // Assert
+            Assert.NotNull(result);
+            Assert.NotEmpty(result);
+            Assert.Equal(2, result.Count);
+            Assert.Contains(result, dto => dto.Name == "IPO_EntitlementCode_123");
+        }
+
+        [Fact]
+        public async Task GetUserEntitlementsAsync_ReturnsListOfEntitlementNames()
+        {
+            // Arrange
+            var userInfo = new UserInfo { Id = "user1" };
+            var reviewGroupReviewers = new List<ReviewGroupReviewer>
+            {
+                new ReviewGroupReviewer { UserId = "user1", GroupId = 123, IsActive = true },
+                new ReviewGroupReviewer { UserId = "user1", GroupId = 456, IsActive = true }
+            };
+            _mockRepo.Setup(repo => repo.GetAllAsync<ReviewGroupReviewer, int>(It.IsAny<System.Linq.Expressions.Expression<Func<ReviewGroupReviewer, bool>>>()))
+                .ReturnsAsync(reviewGroupReviewers);
+
+            // Act
+            var result = await _service.GetUserEntitlementsAsync(userInfo);
+
+            // Assert
+            Assert.NotNull(result);
+            Assert.NotEmpty(result);
+            Assert.Equal(2, result.Count);
+            Assert.Contains(result, "IPO_EntitlementCode_123");
+        }
+
+        [Fact]
+        public async Task GetEntitlementsAsync_ReturnsListOfTuples()
+        {
+            // Arrange
+            var reviewGroupReviewers = new List<ReviewGroupReviewer>
+            {
+                new ReviewGroupReviewer { UserId = "user1", GroupId = 123, IsActive = true },
+                new ReviewGroupReviewer { UserId = "user2", GroupId = 456, IsActive = true }
+            };
+            _mockRepo.Setup(repo => repo.GetAllAsync<ReviewGroupReviewer, int>(It.IsAny<System.Linq.Expressions.Expression<Func<ReviewGroupReviewer, bool>>>()))
+                .ReturnsAsync(reviewGroupReviewers);
+
+            // Act
+            var result = await _service.GetEntitlementsAsync();
+
+            // Assert
+            Assert.NotNull(result);
+            Assert.NotEmpty(result);
+            Assert.Equal(2, result.Count);
+            Assert.Contains(result, tuple => tuple.Item1 == "user1" && tuple.Item2 == "IPO_EntitlementCode_123");
+        }
+    }
+}
